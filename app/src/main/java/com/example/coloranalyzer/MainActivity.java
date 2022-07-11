@@ -254,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 performTasks();
                 if (worker != null) {
-                    worker.schedule(this, 50, TimeUnit.MILLISECONDS);
+                    worker.schedule(this, 100, TimeUnit.MILLISECONDS);
                 }
             }
         });
