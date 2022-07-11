@@ -15,7 +15,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.Size;
 import android.widget.Toast;
 import com.google.android.material.textview.MaterialTextView;
@@ -25,8 +24,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private PreviewView previewView;
     private MaterialTextView main_IMG_first,main_IMG_second,main_IMG_third,main_IMG_forth,main_IMG_fifth;
 
-    private int REQUEST_CODE_PERMISSIONS = 101;
+    private final int REQUEST_CODE_PERMISSIONS = 101;
     private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA"};
 
     private Bitmap bitmap;
@@ -75,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * This function initiliaze given map according to the colors and their pixels amount on the current bitmap value.
+     * This function initialize given map according to the colors and their pixels amount on the current bitmap value.
      */
     private void initiliazeColorsAndPixelsMap() {
         if(bitmap == null)
@@ -237,8 +234,6 @@ public class MainActivity extends AppCompatActivity {
         PAUSE
     }
     private WORKER_STATUS workerStatus = WORKER_STATUS.OFF;
-
-    private Thread mThread;
     private ScheduledExecutorService worker;
 
     private void startCameraWorker() {
@@ -251,19 +246,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startWorker() {
-        if (worker == null) worker = Executors.newSingleThreadScheduledExecutor();
-        if (mThread == null || !mThread.isAlive()) {
-            mThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    performTasks();
-                    if (worker != null) {
-                        worker.schedule(this, 100, TimeUnit.MILLISECONDS);
-                    }
+        if (worker == null)
+            worker = Executors.newSingleThreadScheduledExecutor();
+
+        worker.execute(new Runnable() {
+            @Override
+            public void run() {
+                performTasks();
+                if (worker != null) {
+                    worker.schedule(this, 50, TimeUnit.MILLISECONDS);
                 }
-            });
-            mThread.start();
-        }
+            }
+        });
     }
 
     /**
@@ -272,7 +266,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private void performTasks() {
         if(allColors == null)
-            allColors = new HashMap<Integer, Integer>();
+            allColors = new HashMap<>();
         else
             allColors.clear();
 
