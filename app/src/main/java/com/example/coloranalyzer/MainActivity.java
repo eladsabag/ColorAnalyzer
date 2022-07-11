@@ -242,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ---------- ---------- TIMER ---------- ----------
 
-    private final int DELAY = 2500;
+    private final int DELAY = 3000;
     private enum TIMER_STATUS {
         OFF,
         RUNNING,
