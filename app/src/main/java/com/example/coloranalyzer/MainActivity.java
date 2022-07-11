@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
     private int REQUEST_CODE_PERMISSIONS = 101;
     private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA"};
 
+    private boolean isOccupied = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
         initiliazeColorsAndPixelsMap(allColors,bitmap);
         clearDetails();
         initDetails(sortMapByPopularity(allColors),bitmap.getWidth()*bitmap.getHeight());
+
+        isOccupied = false;
     }
 
     /**
@@ -238,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ---------- ---------- TIMER ---------- ----------
 
-    private final int DELAY = 2000;
+    private final int DELAY = 2500;
     private enum TIMER_STATUS {
         OFF,
         RUNNING,
@@ -261,7 +265,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 // if there is valid image then perform the calculation of the top 5 most popular colors
-                if(previewView.getBitmap() != null) {
+                if(previewView.getBitmap() != null && !isOccupied) {
+                    isOccupied = true;
                     findAndInitTopColors(previewView.getBitmap());
                 }
             }
@@ -272,6 +277,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         if (timerStatus == TIMER_STATUS.RUNNING) {
+            isOccupied = false;
             stopTimer();
             timerStatus = TIMER_STATUS.PAUSE;
         }
@@ -280,8 +286,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        if (timerStatus == TIMER_STATUS.PAUSE)
+        if (timerStatus == TIMER_STATUS.PAUSE) {
             startTimer();
+        }
     }
 
     private void startTimer() {
