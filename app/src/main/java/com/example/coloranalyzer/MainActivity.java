@@ -28,6 +28,9 @@ import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
@@ -37,7 +40,8 @@ public class MainActivity extends AppCompatActivity {
     private int REQUEST_CODE_PERMISSIONS = 101;
     private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA"};
 
-    private boolean isOccupied = false;
+    private Bitmap bitmap;
+    private HashMap<Integer,Integer> allColors = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
 
         findViews();
 
-        startImageTimer();
+        startCameraWorker();
 
         // this piece of code(everything related to the if else statement) is taken from CameraX Documentation
         if(allPermissionsGranted()){
@@ -71,23 +75,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * This function extract the top 5 colors out of the current image bitmap value and init the views according to the results.
-     * @param bitmap - the bitmap value of the current image.
+     * This function initiliaze given map according to the colors and their pixels amount on the current bitmap value.
      */
-    private void findAndInitTopColors(Bitmap bitmap) {
-        HashMap<Integer,Integer> allColors = new HashMap<Integer, Integer>();
-        initiliazeColorsAndPixelsMap(allColors,bitmap);
-        clearDetails();
-        initDetails(sortMapByPopularity(allColors),bitmap.getWidth()*bitmap.getHeight());
-        isOccupied = false;
-    }
-
-    /**
-     * This function initiliaze given map according to the colors and their pixels amount on a given bitmap value.
-     * @param allColors - The map that needed to be initiliazed.
-     * @param bitmap - The bitmap value that the image details are taken from.
-     */
-    private void initiliazeColorsAndPixelsMap(HashMap<Integer, Integer> allColors, Bitmap bitmap) {
+    private void initiliazeColorsAndPixelsMap() {
+        if(bitmap == null)
+            return;
         int x = bitmap.getWidth(), y = bitmap.getHeight();
         for(int i = 0; i < x; i++) {
             for(int j = 0; j < y; j++) {
@@ -120,11 +112,11 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * This function return a descending sorted map according to its value.
-     * @param allColors - The map that needs to be sorted.
+     * @param hm - The map that needs to be sorted.
      * @return - sorted map.
      */
-    private Map<Integer, Integer> sortMapByPopularity(HashMap<Integer, Integer> allColors) {
-        return allColors.entrySet().stream()
+    private HashMap<Integer, Integer> sortMapByPopularity(HashMap<Integer, Integer> hm) {
+        return hm.entrySet().stream()
                 .sorted(Comparator.comparingInt(e -> -e.getValue()))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -137,10 +129,9 @@ public class MainActivity extends AppCompatActivity {
     /**
      * This function init the views according to the map values, it writes the top 5 most popular colors rgb values and its percent out of all the colors.
      * @param sortedMap - The map that holds all of the details.
-     * @param size - The pixels amount of the current image - required in order to calculate the color percent out of the total pixels amount.
      */
-    private void initDetails(Map<Integer, Integer> sortedMap, int size) {
-        int c = 0;
+    private void initDetails(Map<Integer, Integer> sortedMap) {
+        int c = 0, size = bitmap.getWidth()*bitmap.getHeight();
         for(Integer p : sortedMap.keySet()) {
             String percent = String.format("%.2f", (sortedMap.get(p) * 100.0f) / size);
             String text = percent + "%\n" + "R:" + Color.red(p) + " G:" + Color.green(p) + " B:" + Color.blue(p);
@@ -239,35 +230,73 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ---------- ---------- TIMER ---------- ----------
-
-    private final int DELAY = 3000;
-    private enum TIMER_STATUS {
+    // ----------- ----------- ----------- WORKER ----------- ----------- -----------
+    private enum WORKER_STATUS {
         OFF,
         RUNNING,
         PAUSE
     }
-    private TIMER_STATUS timerStatus = TIMER_STATUS.OFF;
-    private Timer timer;
+    private WORKER_STATUS workerStatus = WORKER_STATUS.OFF;
 
-    private void startImageTimer() {
-        if (timerStatus == TIMER_STATUS.RUNNING) {
-            stopTimer();
-            timerStatus = TIMER_STATUS.OFF;
+    private Thread mThread;
+    private ScheduledExecutorService worker;
+
+    private void startCameraWorker() {
+        if (workerStatus == WORKER_STATUS.RUNNING) {
+            stopWorker();
+            workerStatus = WORKER_STATUS.OFF;
         } else {
-            startTimer();
+            startWorker();
         }
     }
 
-    private void tick() {
+    private void startWorker() {
+        if (worker == null) worker = Executors.newSingleThreadScheduledExecutor();
+        if (mThread == null || !mThread.isAlive()) {
+            mThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    performTasks();
+                    if (worker != null) {
+                        worker.schedule(this, 50, TimeUnit.MILLISECONDS);
+                    }
+                }
+            });
+            mThread.start();
+        }
+    }
+
+    /**
+     * This method perform heavy task of calculations and sort on the thread we created,
+     * and then call another function to update the ui according to the calculations performed on this task.
+     */
+    private void performTasks() {
+        if(allColors == null)
+            allColors = new HashMap<Integer, Integer>();
+        else
+            allColors.clear();
+
+        // perform heavy task on the thread we created
+        initiliazeColorsAndPixelsMap();
+        Map<Integer,Integer> sortedMap = sortMapByPopularity(allColors);
+
+        // perform ui task on the main thread
+        performUiTask(sortedMap);
+    }
+
+    /**
+     * This method perform the ui tasks on the main thread according to the given map values.
+     * @param sortedMap - The map that according to its details the ui needs to be updated.
+     */
+    private void performUiTask(Map<Integer, Integer> sortedMap) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                // if there is valid image then perform the calculation of the top 5 most popular colors
-                if(previewView.getBitmap() != null && !isOccupied) {
-                    isOccupied = true;
-                    findAndInitTopColors(previewView.getBitmap());
+                if(bitmap != null) {
+                    clearDetails();
+                    initDetails(sortedMap);
                 }
+                bitmap = previewView.getBitmap(); // get next image
             }
         });
     }
@@ -275,31 +304,22 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        if (timerStatus == TIMER_STATUS.RUNNING) {
-            isOccupied = false;
-            stopTimer();
-            timerStatus = TIMER_STATUS.PAUSE;
+        if (workerStatus == WORKER_STATUS.RUNNING) {
+            stopWorker();
+            workerStatus = WORKER_STATUS.PAUSE;
         }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        if (timerStatus == TIMER_STATUS.PAUSE) {
-            startTimer();
+        if (workerStatus == WORKER_STATUS.PAUSE) {
+            startWorker();
         }
     }
 
-    private void startTimer() {
-        timerStatus = TIMER_STATUS.RUNNING;
-        timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                tick();
-            }
-        }, 0, DELAY);
+    private void stopWorker() {
+        worker.shutdown();
+        worker = null;
     }
-
-    private void stopTimer() { timer.cancel(); }
 }
