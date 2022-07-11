@@ -15,6 +15,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.widget.Toast;
 import com.google.android.material.textview.MaterialTextView;
@@ -75,11 +76,9 @@ public class MainActivity extends AppCompatActivity {
      */
     private void findAndInitTopColors(Bitmap bitmap) {
         HashMap<Integer,Integer> allColors = new HashMap<Integer, Integer>();
-
         initiliazeColorsAndPixelsMap(allColors,bitmap);
         clearDetails();
         initDetails(sortMapByPopularity(allColors),bitmap.getWidth()*bitmap.getHeight());
-
         isOccupied = false;
     }
 
@@ -144,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         int c = 0;
         for(Integer p : sortedMap.keySet()) {
             String percent = String.format("%.2f", (sortedMap.get(p) * 100.0f) / size);
-            String text = percent + "%\n" + "R:" + Color.red(p) + " G:" + Color.blue(p) + " B:" + Color.green(p);
+            String text = percent + "%\n" + "R:" + Color.red(p) + " G:" + Color.green(p) + " B:" + Color.blue(p);
             // if the background is bright then set text color to black else white.
             int textColor = (Color.red(p) > 200 && Color.green(p) > 200 && Color.blue(p) > 200) ? Color.BLACK : Color.WHITE;
 
